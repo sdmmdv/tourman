@@ -1,39 +1,26 @@
 #!/usr/bin/env python3
-
 import os
 import psycopg2
-import subprocess
+from importlib.resources import files
 
 from common.db_utils import get_connection_string
 from common.logger import get_logger
-from common.common import root_dir
 
 logger = get_logger(__name__)
 
 
-def execute_sql_file(conn, filepath):
-    with open(filepath, 'r') as f:
-        sql = f.read()
+def execute_sql_file(conn, sql_text, label):
     with conn.cursor() as cur:
-        cur.execute(sql)
-        # Print any notices PostgreSQL sent during execution
+        cur.execute(sql_text)
         if conn.notices:
-            logger.info("PostgreSQL notices:")
             for notice in conn.notices:
                 logger.info(notice.strip())
-            # Clear notices after printing so they don't repeat
             conn.notices.clear()
     conn.commit()
-    logger.info(f"{filepath} executed.")
+    logger.info(f"{label} executed.")
 
 
 def main():
-
-
-    db_path = os.path.join(root_dir(__file__), 'db')
-    print(db_path)
-
-    # Connect to new DB as admin
     try:
         conn = psycopg2.connect(
             dbname=os.getenv("DB_NAME", "tournament"),
@@ -48,11 +35,13 @@ def main():
         exit(1)
 
     try:
-        execute_sql_file(conn, os.path.join(db_path, 'schema_permissions.sql'))
-        execute_sql_file(conn, os.path.join(db_path, 'tables.sql'))
-        execute_sql_file(conn, os.path.join(db_path, 'table_permissions.sql'))
+        # Load SQL files from the installed 'db' package — path-independent
+        execute_sql_file(conn, files("db").joinpath("schema_permissions.sql").read_text(), "schema_permissions.sql")
+        execute_sql_file(conn, files("db").joinpath("tables.sql").read_text(),             "tables.sql")
+        execute_sql_file(conn, files("db").joinpath("table_permissions.sql").read_text(),  "table_permissions.sql")
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     main()

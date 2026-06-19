@@ -7,8 +7,12 @@ setup(
     author="Sadi Mamedov",
     author_email="sadimamedov7@gmail.com",
     packages=find_packages(where="src"),
+    py_modules=["main"],
     package_dir={"": "src"},
     include_package_data=True,
+    package_data={
+        "db": ["*.sql"],          # bundle SQL files
+    },
     install_requires=[
         "psycopg2-binary",
         "pandas",
