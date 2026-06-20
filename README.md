@@ -280,9 +280,9 @@ Notice that players 3 and 4 (Jessica Vega and Brad Smith) are both on `3.0` poin
 
 ### Round-Robin Tournament
 
-Every player faces every other player exactly once. For N players: N-1 rounds (even N) or N rounds (odd N, with rotating BYE).
+Every player faces every other player exactly once. For N players: **N-1 rounds** (even N) or **N rounds** (odd N, with a rotating BYE). For 10 players that is 9 rounds. Unlike Swiss, **all pairings are generated upfront** in a single command before any round is played.
 
-**Full setup from scratch:**
+#### Full Setup From Scratch
 
 ```bash
 tourman init-db
@@ -291,14 +291,81 @@ tourman register-players
 tourman register-standings
 ```
 
-**Generate all pairings at once:**
+Expected output:
+
+```
+[21:00:15] [core.init_db] INFO: Connection to the database was successful.
+[21:00:15] [core.init_db] INFO: tables.sql executed.
+[21:00:15] [core.init_db] INFO: table_permissions.sql executed.
+[21:00:15] [core.generate_players] INFO: Generating 10 players...
+[21:00:15] [core.generate_players] INFO: Successfully wrote 10 players to /home/user/tourman/data/players.csv
+[21:00:15] [core.register_players] INFO: All players registered successfully.
+[21:00:15] [core.register_standings] INFO: Standings table filled successfully
+```
+
+***
+
+#### Generate All Pairings at Once
 
 ```bash
 tourman generate-roundrobin-pairings
-# Creates data/pairings_r1.csv through data/pairings_r9.csv (for 10 players)
 ```
 
-**Run all rounds:**
+All 9 round CSV files are written immediately:
+
+```
+[21:00:15] [core.generate_roundrobin_pairings] INFO: Pairings CSV file generated successfully: data/pairings_r1.csv
+[21:00:15] [core.generate_roundrobin_pairings] INFO: Pairings CSV file generated successfully: data/pairings_r2.csv
+[21:00:15] [core.generate_roundrobin_pairings] INFO: Pairings CSV file generated successfully: data/pairings_r3.csv
+...
+[21:00:15] [core.generate_roundrobin_pairings] INFO: Pairings CSV file generated successfully: data/pairings_r9.csv
+```
+
+Each file (`data/pairings_r1.csv` through `data/pairings_r9.csv`) contains that round's matchups with `?` placeholders for scores:
+
+```
+round_id,player1_id,player1_name,player1_score,player2_score,player2_name,player2_id
+1,p001,Beth Castillo,?,?,Katie Goodwin,p002
+1,p003,Rachel Goodwin,?,?,Christopher Pennington,p004
+...
+```
+
+> **Important:** Do not re-run `generate-roundrobin-pairings` between rounds — all pairings are fixed upfront and must remain consistent throughout the tournament.
+
+***
+
+#### Run Rounds
+
+For each round, fill in scores (or use `populate-results` for testing), then register and apply:
+
+```bash
+# Fill data/pairings_r1.csv with real scores and save as data/results_r1.csv, or:
+tourman populate-results -f data/pairings_r1.csv   # random scores for testing
+tourman register-results -f data/results_r1.csv
+tourman apply-results -r 1
+tourman print-table -t standings
+```
+
+Standings after round 1:
+
+```
+ rank |         name              | matches |  t2  |  t1  | points
+------+---------------------------+---------+------+------+--------
+    1 | Beth Castillo             |       1 | 0.00 | 0.00 |    1.0
+    2 | Rachel Goodwin            |       1 | 0.00 | 0.00 |    1.0
+    3 | John Gonzalez             |       1 | 0.00 | 0.00 |    1.0
+    4 | Steven Williams           |       1 | 0.00 | 0.50 |    0.5
+    5 | Trevor Robinson           |       1 | 0.00 | 0.50 |    0.5
+    6 | Mr. Jonathan Gilbert      |       1 | 0.00 | 0.50 |    0.5
+    7 | Alicia Turner             |       1 | 0.00 | 0.50 |    0.5
+    8 | Katie Goodwin             |       1 | 0.00 | 1.00 |    0.0
+    9 | Christopher Pennington    |       1 | 0.00 | 1.00 |    0.0
+   10 | Stephanie Burnett         |       1 | 0.00 | 1.00 |    0.0
+```
+
+***
+
+#### Run All 9 Rounds Automatically (Testing)
 
 ```bash
 for r in $(seq 1 9); do
@@ -310,7 +377,30 @@ for r in $(seq 1 9); do
 done
 ```
 
-> **Note:** Unlike Swiss, `generate-roundrobin-pairings` generates all rounds upfront. Do not re-run it between rounds.
+Final standings after all 9 rounds (every player has faced every other player once):
+
+```
+=== Round 9 ===
+[core.apply_results_to_standings] INFO: Record applied successfully
+[core.apply_results_to_standings] INFO: Buchholz tie-breaker recalculated successfully.
+
+ rank |         name              | matches |  t2  |  t1   | points
+------+---------------------------+---------+------+-------+--------
+    1 | Beth Castillo             |       9 | 0.00 | 19.00 |    6.5
+    2 | Mr. Jonathan Gilbert      |       9 | 0.00 | 19.00 |    6.0
+    3 | John Gonzalez             |       9 | 0.00 | 19.00 |    5.5
+    4 | Stephanie Burnett         |       9 | 0.00 | 26.00 |    5.0
+    5 | Steven Williams           |       9 | 0.00 | 19.00 |    4.5
+    6 | Trevor Robinson           |       9 | 0.00 | 26.00 |    4.0
+    7 | Alicia Turner             |       9 | 0.00 | 26.00 |    4.0
+    8 | Christopher Pennington    |       9 | 0.00 | 26.00 |    3.5
+    9 | Rachel Goodwin            |       9 | 0.00 | 19.00 |    3.5
+   10 | Katie Goodwin             |       9 | 0.00 | 26.00 |    2.5
+```
+
+Every player has played exactly 9 matches. Players 6 and 7 (Trevor Robinson and Alicia Turner) share `4.0` points — Buchholz (`t1`) resolves the tie. Players with a high `t1` (e.g. `26.00`) faced stronger competition overall, even if their final score is lower.
+
+> **Note:** In Round-Robin, Buchholz scores grow significantly as the tournament progresses because every player has accumulated points from many games. By round 9, `t1` values clearly separate players who played equally well on points.
 
 ---
 
