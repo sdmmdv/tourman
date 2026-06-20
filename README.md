@@ -11,13 +11,13 @@ A command-line tournament management tool built in Python. Supports **Swiss** an
   - [Local (venv)](#local-venv)
   - [Docker Compose](#docker-compose)
 - [Configuration](#configuration)
-- [Database Schema](#database-schema)
 - [Commands](#commands)
 - [Tournament Workflows](#tournament-workflows)
   - [Swiss Tournament](#swiss-tournament)
   - [Round-Robin Tournament](#round-robin-tournament)
 - [Scoring](#scoring)
 - [Tiebreakers](#tiebreakers)
+- [Database Schema](#database-schema)
 - [Project Structure](#project-structure)
 
 ---
@@ -118,46 +118,6 @@ tourman generate-swiss-pairings -r 1 --conn "postgresql://app_admin:admin_secure
 
 ---
 
-## Database Schema
-
-Three tables are used:
-
-### `Players`
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | VARCHAR(25) PK | Unique player identifier |
-| `name` | VARCHAR(255) | Full name |
-| `email` | VARCHAR(255) | Email address |
-
-### `Standings`
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | VARCHAR(25) FK | References Players |
-| `name` | VARCHAR(255) | Player name |
-| `is_active` | BOOLEAN | Whether the player is active |
-| `is_bye` | BOOLEAN | Whether the player received a BYE |
-| `matches` | INTEGER | Number of matches played |
-| `points` | DECIMAL(4,1) | Total score |
-| `tiebreaker_A` | DECIMAL(8,2) | Buchholz score |
-| `tiebreaker_B` | DECIMAL(8,2) | Reserved |
-| `tiebreaker_C` | DECIMAL(8,2) | Reserved |
-
-### `Results`
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `round_id` | INTEGER | Round number |
-| `player1_id` | VARCHAR(25) FK | References Players |
-| `player1_name` | VARCHAR(255) | Player 1 name |
-| `player1_score` | DECIMAL(2,1) | Score: 0.0, 0.5, or 1.0 |
-| `player2_score` | DECIMAL(2,1) | Score: 0.0, 0.5, or 1.0 |
-| `player2_name` | VARCHAR(255) | Player 2 name (NULL for BYE) |
-| `player2_id` | VARCHAR(25) FK | References Players (NULL for BYE) |
-
----
-
 ## Commands
 
 ### Setup Commands
@@ -200,28 +160,82 @@ Three tables are used:
 
 ### Swiss Tournament
 
-Swiss pairing matches players of similar scores each round. The number of recommended rounds is `ceil(log2(N))` where N is the player count.
+Swiss pairing matches players of similar scores each round, avoiding rematches. The recommended number of rounds is `ceil(log2(N))` where N is the player count — for 10 players that is 4 rounds, though up to `N/2` rounds is acceptable.
 
-**Full setup from scratch:**
+#### Full Setup From Scratch
 
 ```bash
 tourman init-db
-tourman generate-players -n 16
+tourman generate-players -n 10
 tourman register-players
 tourman register-standings
 ```
 
-**Run a single round manually:**
+Expected output:
+
+```
+[20:26:41] [core.init_db] INFO: Connection to the database was successful.
+[20:26:41] [core.init_db] INFO: tables.sql executed.
+[20:26:41] [core.init_db] INFO: table_permissions.sql executed.
+[20:26:41] [core.generate_players] INFO: Generating 10 players...
+[20:26:41] [core.generate_players] INFO: Successfully wrote 10 players to /home/user/tourman/data/players.csv
+[20:26:41] [core.register_players] INFO: All players registered successfully.
+[20:26:41] [core.register_standings] INFO: Standings table filled successfully
+```
+
+***
+
+#### Run a Single Round Manually
+
+Generate pairings, fill in real scores in the CSV, then register and apply:
 
 ```bash
 tourman generate-swiss-pairings -r 1
-# Edit data/pairings_r1.csv with real scores, then:
+```
+
+This writes `data/pairings_r1.csv`:
+
+```
+round_id,player1_id,player1_name,player1_score,player2_score,player2_name,player2_id
+1,p001,Aaron Duncan,?,?,Jessica Vega,p002
+1,p003,Amy Friedman,?,?,Denise English,p004
+...
+```
+
+Edit the file and replace `?` with real scores (`1.0`/`0.0`, `0.5`/`0.5`), save it as `data/results_r1.csv`, then:
+
+```bash
 tourman register-results -f data/results_r1.csv
 tourman apply-results -r 1
 tourman print-table -t standings
 ```
 
-**Run 5 rounds automatically (with random scores for testing):**
+Standings after round 1:
+
+```
+ rank |         name              | matches |  t2  |  t1  | points
+------+---------------------------+---------+------+------+--------
+    1 | Jessica Vega              |       1 | 0.00 | 0.00 |    1.0
+    2 | Amy Friedman              |       1 | 0.00 | 0.00 |    1.0
+    3 | Denise English            |       1 | 0.00 | 0.00 |    1.0
+    4 | Aaron Duncan              |       1 | 0.00 | 0.00 |    1.0
+    5 | Timothy Levine            |       1 | 0.00 | 0.50 |    0.5
+    6 | Stephen Bernard           |       1 | 0.00 | 0.50 |    0.5
+    7 | Brad Smith                |       1 | 0.00 | 1.00 |    0.0
+    8 | James Thompson            |       1 | 0.00 | 1.00 |    0.0
+    9 | Nicholas Cantu            |       1 | 0.00 | 1.00 |    0.0
+   10 | Debra Jensen DDS          |       1 | 0.00 | 1.00 |    0.0
+```
+
+Columns: `t2` = Tiebreaker B (reserved), `t1` = Tiebreaker A (Buchholz — sum of opponents' points).
+
+> **Note:** After round 1, Buchholz scores are `0.00` because no opponents have accumulated points from previous rounds yet. They become meaningful from round 2 onwards.
+
+***
+
+#### Run Multiple Rounds Automatically (Testing)
+
+Use `populate-results` to fill pairings with random scores instead of entering them manually. Useful for testing and development:
 
 ```bash
 for r in $(seq 1 5); do
@@ -234,11 +248,33 @@ for r in $(seq 1 5); do
 done
 ```
 
-Or use the provided script:
+After 5 rounds the final standings look like:
 
-```bash
-bash runscript.sh
 ```
+=== Round 5 ===
+[core.generate_swiss_pairings] WARNING: Recommended rounds ≈ 4 (based on log2(10)), but using up to 5 is acceptable.
+[core.generate_swiss_pairings] INFO: Round 5 is valid (previous max round = 4)
+[core.generate_swiss_pairings] INFO: Pairings CSV file generated successfully: data/pairings_r5.csv
+[utils.populate_results] INFO: Results written to data/results_r5.csv
+[core.register_results] INFO: Results stored successfully.
+[core.apply_results_to_standings] INFO: Record applied successfully
+[core.apply_results_to_standings] INFO: Buchholz tie-breaker recalculated successfully.
+
+ rank |         name              | matches |  t2  |  t1   | points
+------+---------------------------+---------+------+-------+--------
+    1 | Aaron Duncan              |       5 | 0.00 | 13.50 |    4.5
+    2 | Stephen Bernard           |       5 | 0.00 | 10.00 |    3.5
+    3 | Jessica Vega              |       5 | 0.00 | 13.50 |    3.0
+    4 | Brad Smith                |       5 | 0.00 | 11.00 |    3.0
+    5 | Denise English            |       5 | 0.00 | 15.00 |    2.5
+    6 | Amy Friedman              |       5 | 0.00 | 13.00 |    2.5
+    7 | Debra Jensen DDS          |       5 | 0.00 | 12.00 |    2.5
+    8 | Timothy Levine            |       5 | 0.00 | 11.50 |    2.5
+    9 | James Thompson            |       5 | 0.00 | 12.00 |    1.5
+   10 | Nicholas Cantu            |       5 | 0.00 | 13.00 |    0.5
+```
+
+Notice that players 3 and 4 (Jessica Vega and Brad Smith) are both on `3.0` points — Buchholz (`t1`) breaks the tie. Similarly, players 5–8 are all on `2.5` and are separated by their Buchholz scores.
 
 ---
 
@@ -301,6 +337,46 @@ When players are equal on points, standings are ordered by:
 4. **Tiebreaker C** — reserved for future use
 
 Buchholz is recalculated automatically after every `apply-results` call.
+
+---
+
+## Database Schema
+
+Three tables are used:
+
+### `Players`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | VARCHAR(25) PK | Unique player identifier |
+| `name` | VARCHAR(255) | Full name |
+| `email` | VARCHAR(255) | Email address |
+
+### `Standings`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | VARCHAR(25) FK | References Players |
+| `name` | VARCHAR(255) | Player name |
+| `is_active` | BOOLEAN | Whether the player is active |
+| `is_bye` | BOOLEAN | Whether the player received a BYE |
+| `matches` | INTEGER | Number of matches played |
+| `points` | DECIMAL(4,1) | Total score |
+| `tiebreaker_A` | DECIMAL(8,2) | Buchholz score |
+| `tiebreaker_B` | DECIMAL(8,2) | Reserved |
+| `tiebreaker_C` | DECIMAL(8,2) | Reserved |
+
+### `Results`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `round_id` | INTEGER | Round number |
+| `player1_id` | VARCHAR(25) FK | References Players |
+| `player1_name` | VARCHAR(255) | Player 1 name |
+| `player1_score` | DECIMAL(2,1) | Score: 0.0, 0.5, or 1.0 |
+| `player2_score` | DECIMAL(2,1) | Score: 0.0, 0.5, or 1.0 |
+| `player2_name` | VARCHAR(255) | Player 2 name (NULL for BYE) |
+| `player2_id` | VARCHAR(25) FK | References Players (NULL for BYE) |
 
 ---
 
