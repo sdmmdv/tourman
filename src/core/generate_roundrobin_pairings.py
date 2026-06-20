@@ -8,10 +8,9 @@ import subprocess
 import os
 import math
 
-from player import Player
+from core.player import Player
 from common.db_utils import get_connection_string
 from common.logger import get_logger
-from common.common import root_dir
 
 logger = get_logger(__name__)
 
@@ -108,52 +107,45 @@ def roundrobin_round_count(num_players: int) -> int:
 
 
 def generate_pairings_csv(sorted_pairs, round_id):
-    filename = os.path.join(root_dir(__file__), 'data', f'pairings_r{round_id}.csv')
-    filename_display = os.path.join(root_dir(__file__), 'data', 'pairings-display.txt')
-
-    os.makedirs(os.path.dirname(filename), exist_ok=True)  # ensure data/ dir exists
+    data_dir = os.path.join(os.getcwd(), 'data')           # ← replace root_dir
+    filename = os.path.join(data_dir, f'pairings_r{round_id}.csv')
+    filename_display = os.path.join(data_dir, 'pairings-display.txt')
+    os.makedirs(data_dir, exist_ok=True)
 
     with open(filename, 'w', newline='') as file, open(filename_display, 'w') as f:
         writer = csv.writer(file)
         writer.writerow(["round_id", "player1_id", "player1_name", "player1_score", "player2_score", "player2_name", "player2_id"])
-
         for pair in sorted_pairs:
             player1 = pair[0]
             player2 = pair[1]
-
             if player2 == "BYE":
                 row = [round_id, player1.id, player1.name, "BYE", "_", "_", "_"]
                 row_display = f"{player1.name} has a BYE\n"
             else:
                 row = [round_id, player1.id, player1.name, "?", "?", player2.name, player2.id]
                 row_display = f'{player1.name} ?  -  ? {player2.name}\n'
-
             writer.writerow(row)
             f.write(row_display)
-
     logger.info(f"Pairings CSV file generated successfully: {filename}")
 
-if __name__ == '__main__':
-    conn_string = get_connection_string()
+def main(conn_string=None):
+    if conn_string is None:
+        conn_string = get_connection_string()
 
-    # Parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--conn',
-                        help='PostgreSQL connection string',
-                        default=conn_string)
-    args = parser.parse_args()
-
-    # Connect to the database
-    conn = psycopg2.connect(args.conn)
-
+    conn = psycopg2.connect(conn_string)
     active_players = get_active_players(conn)
-
-    max_rounds = roundrobin_round_count(len(active_players))
-    
+    roundrobin_round_count(len(active_players))
     all_rounds = round_robin_pairing(active_players)
-    
+
     for r, matches in enumerate(all_rounds, 1):
         generate_pairings_csv(matches, r)
 
-    # Close database connection
     conn.close()
+
+
+if __name__ == '__main__':
+    conn_string = get_connection_string()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--conn', default=conn_string)
+    args = parser.parse_args()
+    main(args.conn)

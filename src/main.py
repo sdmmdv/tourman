@@ -26,16 +26,18 @@ def main():
     subparsers.add_parser("init-db",              help="Initialize the tournament database")
     p = subparsers.add_parser("generate-players", help="Generate list of players")
     p.add_argument("-n", "--num-players", type=int, default=10, help="Number of players to generate")
-    subparsers.add_parser("register-players",     help="Register players into the database")
+    
+    p = subparsers.add_parser("register-players", help="Register players into the database")
+    p.add_argument("--conn", help="PostgreSQL connection string")
 
     p = subparsers.add_parser("generate-swiss-pairings", help="Generate swiss match pairings")
-    p.add_argument("-r", "--round-id", required=True, help="Round ID")
+    p.add_argument("-r", "--round-id", type=int, required=True, help="Round ID")
 
     subparsers.add_parser("generate-roundrobin-pairings", help="Generate round-robin match pairings")
     subparsers.add_parser("register-standings",   help="Register tournament standings")
 
     p = subparsers.add_parser("populate-results", help="Populate results from a file")
-    p.add_argument("-f", "--file", required=True, help="CSV file with results")
+    p.add_argument("-f", "--file", required=True, help="CSV file with players")
 
     p = subparsers.add_parser("register-results", help="Register results into DB")
     p.add_argument("-f", "--input-file", required=True, help="Results input CSV file")
@@ -45,8 +47,8 @@ def main():
     p.add_argument("-t", "--table", choices=["standings", "results", "players"], required=True)
     p.add_argument("--conn", help="PostgreSQL connection string")
 
-    p = subparsers.add_parser("apply-results",    help="Apply results to standings for a given round")
-    p.add_argument("-r", "--round-id", required=True)
+    p = subparsers.add_parser("apply-results", help="Apply results to standings for a given round")
+    p.add_argument("-r", "--round-id", type=int, required=True)  # ← type=int
     p.add_argument("--conn", help="PostgreSQL connection string")
 
     p = subparsers.add_parser("convert-excel-to-csv", help="Convert Excel file to CSV format")
@@ -74,7 +76,8 @@ def main():
 
         elif args.command == "register-players":
             from core.register_players import main as run
-            run()
+            conn_string = args.conn if hasattr(args, 'conn') and args.conn else None
+            run(conn_string=conn_string)
 
         elif args.command == "generate-swiss-pairings":
             from core.generate_swiss_pairings import main as run

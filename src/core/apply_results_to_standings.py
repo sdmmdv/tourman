@@ -117,30 +117,20 @@ def apply_buchholz_tiebreak(conn):
         raise
 
 
-if __name__ == '__main__':    
-    conn_string = get_connection_string()
+def main(round_id: int, conn_string=None):
+    if conn_string is None:
+        conn_string = get_connection_string()
 
-    # Parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--conn', 
-                        help='PostgreSQL connection string',
-                        default=conn_string)
-    parser.add_argument("-r",
-                        "--round-id",
-                        type=int,
-                        required=True,
-                        help="Round ID")
-    args = parser.parse_args()
-
-    # Connect to the database
-    conn = psycopg2.connect(args.conn)
-
-    # Apply scores to standings
-    apply_scores_to_standings(conn, args.round_id)
-
-    # Apply buchholz_tiebreak
+    conn = psycopg2.connect(conn_string)
+    apply_scores_to_standings(conn, round_id)
     apply_buchholz_tiebreak(conn)
-
-
-    # Close database connection
     conn.close()
+
+
+if __name__ == '__main__':
+    conn_string = get_connection_string()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--conn', default=conn_string)
+    parser.add_argument("-r", "--round-id", type=int, required=True)
+    args = parser.parse_args()
+    main(args.round_id, args.conn)

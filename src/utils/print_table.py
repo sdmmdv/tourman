@@ -21,21 +21,21 @@ def print_standings(conn):
     ORDER BY
       points DESC, tiebreaker_A DESC, tiebreaker_B DESC, tiebreaker_C DESC;
     """
-    
     cur.execute(query)
     standings = cur.fetchall()
 
-    # Print the results in PostgreSQL format
     print(" rank |         name              | matches |  t2  |  t1  | points")
     print("------+---------------------------+---------+------+------+--------")
     for row in standings:
-        print("{:5d} | {:25s} | {:7d} | {:.2f} | {:.2f} | {:6.1f}".format(row[0], row[1], row[2], row[3], row[4], row[5]))
-    
+        print("{:5d} | {:25s} | {:7d} | {:.2f} | {:.2f} | {:6.1f}".format(
+            row[0], row[1], row[2], row[3], row[4], row[5]))
+
     cur.close()
 
-    # Convert the query results to a pandas DataFrame
     df = pd.DataFrame(standings, columns=['rank', 'name', 'matches', 't2', 't1', 'points'])
-    df.to_excel('output.xlsx', index=False)
+    output_file = os.path.join(os.getcwd(), 'output.xlsx')
+    df.to_excel(output_file, index=False)
+
 
 def print_players(conn):
     cur = conn.cursor()
@@ -46,6 +46,7 @@ def print_players(conn):
     for row in rows:
         print("{:<7} | {:<21} | {:<30}".format(row[0], row[1], row[2]))
     print()
+
 
 def print_results(conn):
     cur = conn.cursor()
@@ -64,27 +65,26 @@ def print_results(conn):
     print()
 
 
-if __name__ == '__main__':
-    conn_string = get_connection_string()
+def main(table=None, conn_string=None):       # ← new main()
+    if conn_string is None:
+        conn_string = get_connection_string()
 
-    # Parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--conn', 
-                        help='PostgreSQL connection string',
-                        default=conn_string)
-    parser.add_argument("-t",
-                        "--table",
-                        choices=['standings', 'results', 'players'],
-                        required=True,
-                        help="a PostgreSQL table")
-    args = parser.parse_args()
+    conn = psycopg2.connect(conn_string)
 
-    # Connect to the database
-    conn = psycopg2.connect(args.conn)
-
-    function_name = f"print_{args.table}"
-    function = getattr(sys.modules[__name__], function_name)
+    function = globals().get(f"print_{table}")
+    if function is None:
+        raise ValueError(f"Unknown table: {table}")
     function(conn)
 
-    # Close database connection
     conn.close()
+
+
+if __name__ == '__main__':
+    conn_string = get_connection_string()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--conn', default=conn_string)
+    parser.add_argument("-t", "--table",
+                        choices=['standings', 'results', 'players'],
+                        required=True)
+    args = parser.parse_args()
+    main(args.table, args.conn)

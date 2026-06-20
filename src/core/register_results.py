@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from pathlib import Path
 import argparse
 import psycopg2
 import csv
@@ -9,7 +8,6 @@ import sys
 
 from common.db_utils import get_connection_string
 from common.logger import get_logger
-from common.common import root_dir
 
 logger = get_logger(__name__)
 
@@ -107,28 +105,20 @@ def store_results(input_file, conn):
             cur.close()
 
 
-def main():
-    conn_string = get_connection_string()
+def main(input_file: str, conn_string=None):
+    if conn_string is None:
+        conn_string = get_connection_string()
 
-    # Parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--conn', 
-                        help='PostgreSQL connection string',
-                        default=conn_string)
-    parser.add_argument('-f',
-                        '--input-file',
-                        required=True,
-                        help=f'Results csv input file (default: %(default)s)')
-    args = parser.parse_args()
-
-    # Connect to the database
-    conn = psycopg2.connect(args.conn)
-
-
-    store_results(args.input_file, conn)
-
-    # Close database connection
+    conn = psycopg2.connect(conn_string)
+    store_results(input_file, conn)
     conn.close()
 
+
 if __name__ == '__main__':
-    main()
+    conn_string = get_connection_string()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--conn', default=conn_string)
+    parser.add_argument('-f', '--input-file', required=True,
+                        help='Results csv input file')
+    args = parser.parse_args()
+    main(args.input_file, args.conn)
