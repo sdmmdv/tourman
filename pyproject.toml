@@ -8,3 +8,12 @@ python_files  = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-timeout",
+    "pytest-order",
+    "Faker",
+    "psycopg2-binary",
+]
