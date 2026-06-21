@@ -17,7 +17,7 @@ A command-line tournament management tool built in Python. Supports **Swiss** an
   - [Round-Robin Tournament](#round-robin-tournament)
 - [Scoring](#scoring)
 - [Tiebreakers](#tiebreakers)
-- [Testing] (#testing)
+- [Testing](#testing)
 - [Database Schema](#database-schema)
 - [Project Structure](#project-structure)
 
