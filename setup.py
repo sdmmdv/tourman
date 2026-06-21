@@ -25,5 +25,11 @@ setup(
             "tourman = main:main",
         ],
     },
+    extras_require={
+        "test": [
+            "pytest>=7.0",
+            "pytest-order",
+        ],
+    },
     python_requires=">=3.8",
 )

@@ -17,6 +17,7 @@ A command-line tournament management tool built in Python. Supports **Swiss** an
   - [Round-Robin Tournament](#round-robin-tournament)
 - [Scoring](#scoring)
 - [Tiebreakers](#tiebreakers)
+- [Testing] (#testing)
 - [Database Schema](#database-schema)
 - [Project Structure](#project-structure)
 
@@ -427,6 +428,97 @@ When players are equal on points, standings are ordered by:
 4. **Tiebreaker C** — reserved for future use
 
 Buchholz is recalculated automatically after every `apply-results` call.
+
+---
+
+## Testing
+
+The test suite is written with **pytest** and covers the full Swiss-tournament CLI pipeline end-to-end: database initialisation, player generation, registration, Swiss pairing, result population, result registration, standings updates, and table printing.
+
+### Prerequisites
+
+| Requirement | Version |
+|---|---|
+| Python | 3.11+ |
+| pytest | 9.1+ |
+| pytest-timeout | 2.4+ |
+| pytest-order | 1.5+ |
+| Faker | 40+ |
+| psycopg2-binary | 2.9+ |
+| PostgreSQL | 14+ (running) |
+
+Install all test dependencies:
+
+```bash
+pip install -e ".[test]"
+```
+
+Or individually:
+
+```bash
+pip install pytest pytest-timeout pytest-order Faker psycopg2-binary
+```
+
+---
+
+### Environment Variables
+
+The test suite connects to PostgreSQL using the same variables as the application:
+
+```bash
+export DB_NAME=tournament
+export DB_USER=app_admin
+export DB_PASS=admin_secure_pass
+export DB_HOST=localhost
+export DB_PORT=5432
+```
+
+---
+
+### Running the Tests
+
+```bash
+# Run all tests
+pytest src/tests/test_cli.py -v --tb=short --timeout=30
+
+# Run a specific test class
+pytest src/tests/test_cli.py::TestRegisterStandings -v
+
+# Run a single test
+pytest src/tests/test_cli.py::TestPopulateResults::test_scores_sum_to_one -v
+```
+
+---
+
+### Test Structure
+
+Tests are in `src/tests/test_cli.py`. Shared fixtures live in `src/tests/conftest.py` — pytest loads it automatically; never run `conftest.py` directly.
+
+#### Fixture lifecycle
+
+| Fixture | Scope | What it does |
+|---|---|---|
+| `set_working_directory` | session | `chdir` to project root so `data/` paths resolve |
+| `fresh_database` | session | Calls `init_db()` on setup; drops all tables on teardown |
+| `num_players` | session | Returns `10` — change here to test with a different player count |
+| `session_setup` | session | Generates `data/players.csv`, registers players and standings once |
+| `run` / `run_rounds` | class | Runs the CLI command under test before each class's tests execute |
+
+`session_setup` depends on `fresh_database`, so the database is always clean at the start of a run and dropped at the end.
+
+#### Test classes
+
+| Class | CLI command | # Tests |
+|---|---|---|
+| `TestInitDb` | `init-db` | 6 |
+| `TestGeneratePlayers` | `generate-players` | 5 |
+| `TestRegisterPlayers` | `register-players` | 1 |
+| `TestRegisterStandings` | `register-standings` | 5 |
+| `TestGenerateSwissPairings` | `generate-swiss-pairings` | 5 |
+| `TestPopulateResults` | `populate-results` | 5 |
+| `TestPrintTable` | `print-table` | 3 |
+
+**Total: 30 tests**
 
 ---
 
