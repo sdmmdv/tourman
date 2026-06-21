@@ -168,5 +168,4 @@ jobs:
         run: |
           twine upload \
             --repository-url https://maven.pkg.github.com/sdmmdv/tourman \
-            --skip-existing \
             dist/*
