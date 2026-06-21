@@ -13,6 +13,11 @@ services:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_admin -d tournament"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   app:
     build:
@@ -26,20 +31,35 @@ services:
       DB_HOST: db
       DB_PORT: 5432
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - ./src:/app/src
+      - ./data:/app/data
     command: ["tail", "-f", "/dev/null"]
     ports:
       - "8000:8000"
 
-  # tests:
-  #   build:
-  #     context: .
-  #     dockerfile: tourman.Dockerfile
-  #   command: ["pytest", "tests"]
-  #   depends_on:
-  #     - db
+  tests:
+    build:
+      context: .
+      dockerfile: tourman.Dockerfile
+    container_name: tourman_tests
+    environment:
+      DB_USER: app_admin
+      DB_PASS: admin_secure_pass
+      DB_NAME: tournament
+      DB_HOST: db
+      DB_PORT: 5432
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    command: ["pytest", "src/tests/test_cli.py", "-v", "--tb=short", "--timeout=30"]
+    profiles:
+      - test
 
 volumes:
   pgdata:
