@@ -132,17 +132,16 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   # ─────────────────────────────────────────────────────────────────
-  # 3. PUBLISH PYTHON PACKAGE → GitHub Packages (pip)
+  # 3. ATTACH WHEEL → GitHub Release artifact
   # Triggered only on version tag push (e.g. v1.0.0)
   # ─────────────────────────────────────────────────────────────────
   publish-python:
-    name: Publish Python Package
+    name: Attach Wheel to Release
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:
-      contents: read
-      packages: write
+      contents: write
 
     steps:
       - name: Checkout
@@ -156,16 +155,12 @@ jobs:
       - name: Install build tools
         run: |
           python -m pip install --upgrade pip
-          pip install build twine
+          pip install build
 
       - name: Build wheel + sdist
         run: python -m build
 
-      - name: Publish to GitHub Packages
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          twine upload \
-            --repository-url https://maven.pkg.github.com/sdmmdv/tourman \
-            dist/*
+      - name: Attach wheel + sdist to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
