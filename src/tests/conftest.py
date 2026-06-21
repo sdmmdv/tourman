@@ -11,9 +11,9 @@ import psycopg2
 
 @pytest.fixture(autouse=True, scope="session")
 def set_working_directory():
-    """Run from project root so data/ and db/ paths resolve correctly."""
+    """chdir to project root so data/ and db/ paths resolve correctly."""
     root = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "..")
+        os.path.join(os.path.dirname(__file__), "..", "..")
     )
     os.chdir(root)
     os.makedirs(os.path.join(root, "data"), exist_ok=True)
@@ -62,7 +62,7 @@ def num_players():
     return 10
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def fresh_database(set_working_directory):
     """Wipe and recreate DB schema once before all tests. Drop on teardown."""
     from core.init_db import main as init_db

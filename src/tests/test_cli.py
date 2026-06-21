@@ -11,7 +11,10 @@ import csv
 import pytest
 import psycopg2
 
-DATA = os.path.join(os.getcwd(), "data")
+
+# DATA resolves at call time (after set_working_directory fixture has run)
+def _data(*parts):
+    return os.path.join(os.getcwd(), "data", *parts)
 
 
 def _conn():
@@ -29,7 +32,7 @@ def _scalar(sql, params=None):
 
 
 def _csv(filename):
-    with open(os.path.join(DATA, filename), newline="") as f:
+    with open(_data(filename), newline="") as f:
         return list(csv.DictReader(f))
 
 
@@ -74,7 +77,7 @@ class TestInitDb:
 class TestGeneratePlayers:
 
     def test_players_csv_created(self, session_setup):
-        assert os.path.exists(os.path.join(DATA, "players.csv"))
+        assert os.path.exists(_data("players.csv"))
 
     def test_correct_number_of_rows(self, session_setup, num_players):
         assert len(_csv("players.csv")) == num_players
@@ -138,7 +141,7 @@ class TestGenerateSwissPairings:
         gen(cls.ROUND)
 
     def test_pairings_csv_created(self):
-        assert os.path.exists(os.path.join(DATA, f"pairings_r{self.ROUND}.csv"))
+        assert os.path.exists(_data(f"pairings_r{self.ROUND}.csv"))
 
     def test_correct_pairing_count(self, num_players):
         assert len(_csv(f"pairings_r{self.ROUND}.csv")) == num_players // 2
@@ -176,10 +179,10 @@ class TestPopulateResults:
     @classmethod
     def run(cls, session_setup):
         from utils.populate_results import main as populate
-        populate(os.path.join(DATA, f"pairings_r{cls.ROUND}.csv"))
+        populate(_data(f"pairings_r{cls.ROUND}.csv"))
 
     def test_results_csv_created(self):
-        assert os.path.exists(os.path.join(DATA, f"results_r{self.ROUND}.csv"))
+        assert os.path.exists(_data(f"results_r{self.ROUND}.csv"))
 
     def test_no_question_marks_remain(self):
         for row in _csv(f"results_r{self.ROUND}.csv"):
