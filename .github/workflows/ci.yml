@@ -49,10 +49,23 @@ jobs:
           pip install -e .
           pip install pytest pytest-timeout pytest-order Faker psycopg2-binary
 
+      - name: Create missing DB roles
+        env:
+          PGPASSWORD: admin_secure_pass
+        run: |
+          psql -h localhost -U app_admin -d tournament -c "
+            DO \$\$
+            BEGIN
+              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_guest') THEN
+                CREATE ROLE app_guest;
+              END IF;
+            END
+            \$\$;
+          "
+
       - name: Lint with flake8
         run: |
           pip install flake8
-          # fail on syntax errors or undefined names; warn on style
           flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
           flake8 src --count --max-line-length=120 --statistics --exit-zero
 
